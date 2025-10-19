@@ -5,7 +5,6 @@ A microservice for managing delivery operations with support for multiple shippi
 ## Table of Contents
 
 - [Overview](#overview)
-- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Setup Instructions](#setup-instructions)
 - [API Endpoints](#api-endpoints)
@@ -36,29 +35,18 @@ The system automatically selects the appropriate shipping provider based on **pa
 
 ### Key Features
 
-- RESTful API for delivery management
-- Automatic provider selection based on package weight
-- Asynchronous status updates via polling and webhooks
-- MongoDB for data persistence
-- Comprehensive test suite (unit, integration, and E2E tests)
-- Docker support for easy deployment
-- Configurable polling intervals
+- **RESTful API** for delivery management
+- **Automatic provider selection** based on package weight (> 20kg = NRW, ≤ 20kg = TLS)
+- **Dual update mechanisms**: Polling (NRW) and Webhooks (TLS)
+- **MongoDB** for data persistence with Mongoose ODM
+- **Comprehensive test suite**:unit tests, integration tests, E2E tests
+- **Docker support** for easy deployment and development
+- **Configurable polling** intervals (default: 1 hour)
+- **Clean Architecture** with clear separation of concerns
+- **Type-safe** with TypeScript and Zod validation
 
-## Architecture
 
-```
-src/
-├── domain/                    # Domain entities and business logic
-├── application/               # Use cases and services
-│   ├── usecases/             # Application use cases
-│   └── services/             # Application services
-├── infrastructure/            # External interfaces
-│   ├── controllers/          # HTTP controllers
-│   ├── providers/            # Shipping provider implementations
-│   ├── persistence/          # Database repositories and schemas
-│   └── scheduler/            # Polling task implementation
-└── main.ts                   # Application entry point
-```
+
 
 ## Prerequisites
 

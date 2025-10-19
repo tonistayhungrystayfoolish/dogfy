@@ -2,8 +2,7 @@ import fastify, { FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { CreateDeliveryUseCase } from '../../../src/application/usecases/create-delivery.usecase';
 import { GetDeliveryStatusUseCase } from '../../../src/application/usecases/get-delivery-status.usecase';
-import { UpdateDeliveryStatusWebhookUseCase } from '../../../src/application/usecases/update-delivery-status-webhook.usecase';
-import { PollDeliveryStatusUseCase } from '../../../src/application/usecases/poll-delivery-status.usecase';
+import { UpdateDeliveryStatusUseCase } from '../../../src/application/usecases/update-delivery-status.usecase';
 import { MongoDbDeliveryRepositoryImpl } from '../../../src/infrastructure/persistence/repositories/mongodb-delivery-repository.impl';
 import { ShippingProviderRepositoryImpl } from '../../../src/infrastructure/repositories/shipping-provider-repository.impl';
 import { ProviderSelectionService } from '../../../src/domain/services/provider-selection.service';
@@ -52,31 +51,23 @@ export class E2EServerHelper {
       providerSelectionService,
     );
     const getDeliveryStatusUseCase = new GetDeliveryStatusUseCase(deliveryRepository);
-    const updateDeliveryStatusWebhookUseCase = new UpdateDeliveryStatusWebhookUseCase(
-      deliveryStatusService,
-    );
-    const pollDeliveryStatusUseCase = new PollDeliveryStatusUseCase(deliveryStatusService);
 
-    // Initialize Fastify server
+    const updateDeliveryStatusUseCase = new UpdateDeliveryStatusUseCase(deliveryStatusService);
+
     this.server = fastify({
       logger: false, // Disable logging in tests for cleaner output
     });
 
-    // Setup Zod type provider
     this.server.setValidatorCompiler(validatorCompiler);
     this.server.setSerializerCompiler(serializerCompiler);
 
-    // Setup centralized error handling
     ErrorHandler.setupErrorHandler(this.server);
 
-    // Register routes
     DeliveryController.registerRoutes(this.server, createDeliveryUseCase, getDeliveryStatusUseCase);
-    WebhookController.registerRoutes(this.server, updateDeliveryStatusWebhookUseCase);
+    WebhookController.registerRoutes(this.server, updateDeliveryStatusUseCase);
 
-    // Initialize polling task (but do NOT start automatic polling)
-    this.pollingTask = new DeliveryPollingTask(pollDeliveryStatusUseCase);
+    this.pollingTask = new DeliveryPollingTask(updateDeliveryStatusUseCase);
 
-    // Start server on random port (port 0)
     const address = await this.server.listen({ port: 0, host: '127.0.0.1' });
     this.serverUrl = address;
 

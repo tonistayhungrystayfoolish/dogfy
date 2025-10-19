@@ -3,8 +3,7 @@ import fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { CreateDeliveryUseCase } from './application/usecases/create-delivery.usecase';
 import { GetDeliveryStatusUseCase } from './application/usecases/get-delivery-status.usecase';
-import { UpdateDeliveryStatusWebhookUseCase } from './application/usecases/update-delivery-status-webhook.usecase';
-import { PollDeliveryStatusUseCase } from './application/usecases/poll-delivery-status.usecase';
+import { UpdateDeliveryStatusUseCase } from './application/usecases/update-delivery-status.usecase';
 import { MongoDbDeliveryRepositoryImpl } from './infrastructure/persistence/repositories/mongodb-delivery-repository.impl';
 import { ShippingProviderRepositoryImpl } from './infrastructure/repositories/shipping-provider-repository.impl';
 import { ProviderSelectionService } from './domain/services/provider-selection.service';
@@ -36,10 +35,7 @@ async function bootstrap() {
   const shippingProviders = [new NRWShippingProvider(), new TLSShippingProvider()];
   const deliveryStatusService = new DeliveryStatusService(deliveryRepository, shippingProviders);
 
-  const updateDeliveryStatusWebhookUseCase = new UpdateDeliveryStatusWebhookUseCase(
-    deliveryStatusService,
-  );
-  const pollDeliveryStatusUseCase = new PollDeliveryStatusUseCase(deliveryStatusService);
+  const updateDeliveryStatusUseCase = new UpdateDeliveryStatusUseCase(deliveryStatusService);
 
   const server = fastify({
     logger: true,
@@ -51,9 +47,9 @@ async function bootstrap() {
   ErrorHandler.setupErrorHandler(server);
 
   DeliveryController.registerRoutes(server, createDeliveryUseCase, getDeliveryStatusUseCase);
-  WebhookController.registerRoutes(server, updateDeliveryStatusWebhookUseCase);
+  WebhookController.registerRoutes(server, updateDeliveryStatusUseCase);
 
-  const pollingTask = new DeliveryPollingTask(pollDeliveryStatusUseCase);
+  const pollingTask = new DeliveryPollingTask(updateDeliveryStatusUseCase);
 
   pollingTask.startPolling();
 

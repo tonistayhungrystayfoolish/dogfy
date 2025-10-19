@@ -1,12 +1,10 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { UpdateDeliveryStatusWebhookUseCase } from '@/application/usecases/update-delivery-status-webhook.usecase';
+import { UpdateDeliveryStatusUseCase } from '@/application/usecases/update-delivery-status.usecase';
 import { TrackingId } from '@/domain/value-objects/tracking-id';
 import { TLSWebhookPayload, TLSWebhookPayloadSchema } from './dtos/tls-webhook-payload.dto';
 
 export class WebhookController {
-  constructor(
-    private readonly updateDeliveryStatusWebhookUseCase: UpdateDeliveryStatusWebhookUseCase,
-  ) {}
+  constructor(private readonly updateDeliveryStatusUseCase: UpdateDeliveryStatusUseCase) {}
 
   async handleTLSWebhook(
     request: FastifyRequest<{ Body: TLSWebhookPayload }>,
@@ -15,16 +13,16 @@ export class WebhookController {
     const { trackingId, status } = request.body;
 
     const trackingIdVO = new TrackingId(trackingId);
-    await this.updateDeliveryStatusWebhookUseCase.execute(trackingIdVO, status);
+    await this.updateDeliveryStatusUseCase.executeFromWebhook(trackingIdVO, status);
 
     return reply.code(200).send({ success: true });
   }
 
   static registerRoutes(
     fastify: FastifyInstance,
-    updateDeliveryStatusWebhookUseCase: UpdateDeliveryStatusWebhookUseCase,
+    updateDeliveryStatusUseCase: UpdateDeliveryStatusUseCase,
   ): void {
-    const controller = new WebhookController(updateDeliveryStatusWebhookUseCase);
+    const controller = new WebhookController(updateDeliveryStatusUseCase);
 
     fastify.post(
       '/webhooks/tls/status',
