@@ -1,16 +1,22 @@
 import { PollDeliveryStatusUseCase } from '@/application/usecases/poll-delivery-status.usecase';
+import { PollingConfig } from '@/infrastructure/config/polling.config';
+
 
 export class DeliveryPollingTask {
   private pollingInterval: NodeJS.Timeout | null = null;
 
   constructor(private readonly pollDeliveryStatusUseCase: PollDeliveryStatusUseCase) {}
 
-  startPolling(intervalMs: number = 60000): void {
+  startPolling(intervalMs: number = PollingConfig.getPollingInterval()): void {
     if (this.pollingInterval) {
       this.stopPolling();
     }
 
-    console.log(`Starting delivery status polling every ${intervalMs}ms`);
+    console.log(
+      `🔄 Starting delivery status polling every ${PollingConfig.formatInterval(intervalMs)} (${intervalMs}ms)`,
+    );
+    console.log(`   Polling applies to: NRW (non-webhook providers)`);
+    console.log(`   Skipping: TLS (webhook-based providers)`);
 
     this.pollingInterval = setInterval(async () => {
       try {

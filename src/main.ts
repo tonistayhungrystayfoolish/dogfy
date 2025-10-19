@@ -55,7 +55,7 @@ async function bootstrap() {
 
   const pollingTask = new DeliveryPollingTask(pollDeliveryStatusUseCase);
 
-  pollingTask.startPolling(60 * 60 * 1000);
+  pollingTask.startPolling();
 
   const port = parseInt(process.env.PORT || '3000', 10);
   try {

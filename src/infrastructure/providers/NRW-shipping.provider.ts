@@ -18,6 +18,9 @@ export class NRWShippingProvider implements ShippingProvider {
     const trackingId = TrackingId.create();
     const labelContent = `NRW Shipping Label\nTracking: ${trackingId.value}\nFrom: ${sender.fullAddress}\nTo: ${recipient.fullAddress}\nPackaging: ${content.packagingType}\nWeight: ${content.totalWeight}kg\nDimensions: ${content.dimensions.toString()}`;
 
+    // Register tracking ID in external system for polling
+    nrwExternalTrackingSystem.set(trackingId.value, new Date());
+
     return new ShippingLabel(labelContent, trackingId);
   }
 
