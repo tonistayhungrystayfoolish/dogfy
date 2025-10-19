@@ -17,17 +17,32 @@ A microservice for managing delivery operations with support for multiple shippi
 
 This microservice handles delivery creation and status tracking with two different shipping providers:
 
-- **NRW Shipping Provider**: Uses polling mechanism for status updates with delivery weigth>20kg
-- **TLS Shipping Provider**: Uses webhook mechanism for real-time status updates
+- **NRW Shipping Provider**: Uses polling mechanism for status updates (for packages > 20kg)
+- **TLS Shipping Provider**: Uses webhook mechanism for real-time status updates (for packages ≤ 20kg)
+
+### Provider Selection Logic
+
+The system automatically selects the appropriate shipping provider based on **package weight**:
+
+| Package Weight | Provider | Update Mechanism | Polling Interval |
+| -------------- | -------- | ---------------- | ---------------- |
+| **> 20kg**     | NRW      | Polling          | Every 1 hour     |
+| **≤ 20kg**     | TLS      | Webhooks         | Real-time        |
+
+**Example:**
+
+- Package weighing 25kg → NRW Provider → Status polled every hour
+- Package weighing 5kg → TLS Provider → Status updated via webhooks
 
 ### Key Features
 
 - RESTful API for delivery management
-- Automatic provider selection based on delivery addresses
+- Automatic provider selection based on package weight
 - Asynchronous status updates via polling and webhooks
 - MongoDB for data persistence
 - Comprehensive test suite (unit, integration, and E2E tests)
 - Docker support for easy deployment
+- Configurable polling intervals
 
 ## Architecture
 
@@ -77,7 +92,6 @@ This will:
 - Start MongoDB container on port 27017
 - Start the application container on port 3000
 - Initialize the database with required collections and indexes
-
 
 The service is now accessible at `http://localhost:3000`
 
@@ -291,18 +305,23 @@ The microservice supports two mechanisms for status updates:
 
 ### 1. Polling Mechanism (NRW Provider)
 
-The NRW provider uses a polling mechanism that runs every hour to check for status updates.
+The NRW provider uses a polling mechanism that runs **every 1 hour** to check for status updates.
 
 #### How It Works
 
-1. Create a delivery with both sender and recipient with weight more than 20kg this try NRW
-2. The polling task automatically runs every 60 minutes
+1. Create a delivery with package weight **greater than 20kg** (this selects NRW provider)
+2. The polling task automatically runs every hour
 3. The task queries the NRW provider API for status updates
 4. Status is updated in the database automatically
 
+#### Provider Selection Logic
+
+- **Weight > 20kg** → NRW Provider (polling-based)
+- **Weight ≤ 20kg** → TLS Provider (webhook-based)
+
 #### Testing Polling Flow
 
-**Step 1: Create an NRW delivery**
+**Step 1: Create an NRW delivery (weight > 20kg)**
 
 ```bash
 curl -X POST http://localhost:3000/deliveries \
@@ -310,35 +329,37 @@ curl -X POST http://localhost:3000/deliveries \
   -d '{
     "orderId": "ORDER-NRW-001",
     "sender": {
-      "street": "100 Sender Street",
-      "city": "Düsseldorf",
-      "state": "North Rhine-Westphalia",
-      "country": "Germany",
-      "zipCode": "40210"
+      "street": "Carrer de Balmes 150",
+      "city": "Barcelona",
+      "state": "Catalonia",
+      "country": "Spain",
+      "zipCode": "08008"
     },
     "recipient": {
-      "street": "200 Recipient Avenue",
-      "city": "Dortmund",
-      "state": "North Rhine-Westphalia",
-      "country": "Germany",
-      "zipCode": "44135"
+      "street": "Passeig de Gràcia 92",
+      "city": "Barcelona",
+      "state": "Catalonia",
+      "country": "Spain",
+      "zipCode": "08007"
     },
     "packagingType": "box",
     "dimensions": {
-      "length": 30,
-      "width": 20,
-      "height": 15,
-      "weight": 100
+      "length": 50,
+      "width": 40,
+      "height": 30,
+      "weight": 25.0
     },
     "items": [
       {
-        "productId": "PROD-NRW-001",
+        "productId": "PROD-HEAVY-001",
         "quantity": 1,
-        "unitWeight": 2.5
+        "unitWeight": 25.0
       }
     ]
   }'
 ```
+
+**Note:** Weight is 25kg (> 20kg threshold), so NRW provider will be selected.
 
 **Step 2: Save the delivery ID from the response**
 
@@ -362,7 +383,7 @@ curl http://localhost:3000/deliveries/abc123.../status
 
 **Step 4: Wait for polling cycle (or trigger manually in tests)**
 
-The polling task runs every 60 minutes. In production, you'll see status updates automatically.
+The polling task runs every hour (3600000ms). In production, you'll see status updates automatically after each polling cycle.
 
 **Step 5: Check updated status**
 
@@ -374,13 +395,30 @@ You should see the status has progressed (e.g., from `created` to `shipped` to `
 
 #### Polling Configuration
 
-The polling interval is configured in `src/main.ts`:
+The polling interval is **1 hour by default** and can be configured in multiple ways:
+
+**Option 1: Use default (recommended)**
 
 ```typescript
-pollingTask.startPolling(60 * 60 * 1000); // 60 minutes
+// src/main.ts
+pollingTask.startPolling(); // Uses default: 1 hour
 ```
 
-To change the interval, modify this value (in milliseconds).
+**Option 2: Environment variable**
+
+```bash
+# .env file
+POLLING_INTERVAL_MS=3600000  # 1 hour (default)
+POLLING_INTERVAL_MS=1800000  # 30 minutes
+```
+
+**Option 3: Custom interval in code**
+
+```typescript
+pollingTask.startPolling(30 * 60 * 1000); // 30 minutes
+```
+
+For more details, see [Polling Configuration Documentation](docs/POLLING-CONFIGURATION.md).
 
 ### 2. Webhook Mechanism (TLS Provider)
 
@@ -388,7 +426,7 @@ The TLS provider uses webhooks for real-time status updates.
 
 #### How It Works
 
-1. Create a delivery with sender or recipient outside North Rhine-Westphalia (this selects TLS provider)
+1. Create a delivery with package weight **20kg or less** (this selects TLS provider)
 2. The TLS provider sends webhook notifications to `/webhooks/tls/status` when status changes
 3. The webhook handler updates the delivery status immediately
 
@@ -508,41 +546,43 @@ You should see `"status": "delivered"`
 
 #### Example 1: NRW Provider (Polling-based)
 
-**Create Delivery:**
+**Create Delivery (Heavy Package > 20kg):**
 
 ```json
 {
   "orderId": "ORDER-20251017-001",
   "sender": {
-    "street": "Königsallee 60",
-    "city": "Düsseldorf",
-    "state": "North Rhine-Westphalia",
-    "country": "Germany",
-    "zipCode": "40212"
+    "street": "Carrer de Mallorca 401",
+    "city": "Barcelona",
+    "state": "Catalonia",
+    "country": "Spain",
+    "zipCode": "08013"
   },
   "recipient": {
-    "street": "Westenhellweg 102",
-    "city": "Dortmund",
-    "state": "North Rhine-Westphalia",
-    "country": "Germany",
-    "zipCode": "44137"
+    "street": "Gran Via de les Corts Catalanes 585",
+    "city": "Barcelona",
+    "state": "Catalonia",
+    "country": "Spain",
+    "zipCode": "08011"
   },
   "packagingType": "box",
   "dimensions": {
-    "length": 40,
-    "width": 30,
-    "height": 20,
-    "weight": 5.0
+    "length": 60,
+    "width": 50,
+    "height": 40,
+    "weight": 30.0
   },
   "items": [
     {
-      "productId": "DOG-FOOD-PREMIUM-5KG",
+      "productId": "DOG-FOOD-BULK-30KG",
       "quantity": 1,
-      "unitWeight": 5.0
+      "unitWeight": 30.0
     }
   ]
 }
 ```
+
+**Note:** Weight is 30kg (> 20kg), so NRW provider is automatically selected.
 
 **Expected Response:**
 
