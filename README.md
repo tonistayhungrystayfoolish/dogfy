@@ -17,8 +17,8 @@ A microservice for managing delivery operations with support for multiple shippi
 
 This microservice handles delivery creation and status tracking with two different shipping providers:
 
-- **NRW Shipping Provider**: Uses polling mechanism for status updates (for deliveries within North Rhine-Westphalia, Germany)
-- **TLS Shipping Provider**: Uses webhook mechanism for real-time status updates (for all other deliveries)
+- **NRW Shipping Provider**: Uses polling mechanism for status updates with delivery weigth>20kg
+- **TLS Shipping Provider**: Uses webhook mechanism for real-time status updates
 
 ### Key Features
 
